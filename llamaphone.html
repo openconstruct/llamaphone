@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LLamaPhone (Styled + Settings)</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+            overscroll-behavior: contain;
+            padding: 20px;
+        }
+
+        .phone-container {
+            position: relative;
+            width: 100%;
+            max-width: 380px;
+            height: 85vh;
+            max-height: 780px;
+            background-color: #111;
+            border-radius: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            padding: 12px;
+            border: 1px solid #333;
+            overflow: hidden;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 24px;
+            padding: 0 15px;
+            background-color: #000;
+            color: white;
+            font-size: 12px;
+            border-top-left-radius: 28px;
+            border-top-right-radius: 28px;
+        }
+
+        .status-bar-left { display: flex; align-items: center; }
+        .status-bar-right { display: flex; align-items: center; }
+        .battery-icon { display: inline-block; width: 20px; height: 10px; border: 1px solid white; border-radius: 2px; position: relative; margin-left: 6px; }
+        .battery-icon::before { content: ''; position: absolute; left: 1px; top: 1px; height: 6px; width: 14px; background-color: #4CAF50; border-radius: 1px; }
+        .battery-icon::after { content: ''; position: absolute; right: -4px; top: 3px; width: 3px; height: 4px; background-color: white; border-radius: 0 2px 2px 0; }
+
+        .notch-container { position: absolute; top: 0; left: 0; right: 0; height: 24px; display: flex; justify-content: center; z-index: 100; }
+        .notch { background-color: #000; border-radius: 0 0 15px 15px; height: 24px; width: 150px; position: relative; }
+        .home-indicator { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); height: 5px; width: 120px; background-color: #fff; border-radius: 3px; opacity: 0.2; }
+
+        .phone-screen {
+            width: 100%;
+            height: calc(100% - 24px);
+            background-color: #fff;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #fff; display: flex; flex-direction: column; overflow: hidden; transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; opacity: 1; transform: translateX(0); z-index: 1; }
+        .view.hidden { transform: translateX(100%); opacity: 0; pointer-events: none; z-index: 0; }
+        #chat-view, #add-contact-view { transform: translateX(100%); z-index: 10; }
+        #chat-view.active, #add-contact-view.active { transform: translateX(0%); opacity: 1; pointer-events: auto; }
+        #contacts-view { z-index: 5; }
+
+        .contacts-header {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            padding: 12px 10px;
+            font-size: 1.4em;
+            font-weight: bold;
+            border-bottom: 1px solid #eee;
+            background-color: #f9f9f9;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .header-title {
+            text-align: center;
+            margin: 0 5px;
+            color: #333;
+            grid-column: 2 / 3;
+             font-size: 1em;
+             font-weight: 600;
+        }
+
+        .header-action-btn {
+            background: none;
+            border: none;
+            font-size: 1.4em;
+            cursor: pointer;
+            color: #007AFF;
+            padding: 5px;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+        .header-action-btn:active { transform: scale(0.9); }
+        #settings-btn { grid-column: 1 / 2; justify-self: start;}
+
+        .add-contact-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #007AFF;
+            padding: 0 5px;
+            transition: all 0.2s;
+            grid-column: 3 / 4; justify-self: end;
+        }
+        .add-contact-btn:active { transform: scale(0.9); }
+
+        .contacts-list { flex-grow: 1; overflow-y: auto; background-color: #f5f5f5; }
+        .contact-item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease; position: relative; margin: 4px 8px; border-radius: 12px; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .contact-item:active { background-color: #f1f1f1; transform: scale(0.98); }
+        .contact-avatar { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; background-color: #eee; object-fit: cover; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .contact-details { flex-grow: 1; }
+        .contact-name { font-size: 1.1em; font-weight: 600; color: #333; margin-bottom: 2px; }
+        .contact-preview { font-size: 0.85em; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .contact-actions { display: flex; align-items: center; }
+        .delete-contact-btn { background: none; border: none; font-size: 1.2em; color: #FF3B30; cursor: pointer; padding: 5px; margin-left: 5px; opacity: 0.7; transition: opacity 0.2s, background-color 0.2s; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+        .contact-item:hover .delete-contact-btn { opacity: 1; }
+        .delete-contact-btn:active { background-color: rgba(255,59,48,0.1); }
+        .ping-indicator { width: 10px; height: 10px; background-color: #007AFF; border-radius: 50%; margin-left: 10px; animation: pulse 1.5s infinite ease-in-out; }
+        .timestamp { font-size: 0.75em; color: #999; margin-top: 3px; }
+        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
+
+        .chat-header { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #eee; background-color: #f9f9f9; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .back-button { background: none; border: none; font-size: 1.2em; font-weight: bold; cursor: pointer; padding: 0 10px 0 0; color: #007AFF; transition: all 0.2s; }
+        .back-button:active { transform: scale(0.9); }
+        .chat-title { flex-grow: 1; text-align: center; font-weight: 600; font-size: 1.1em; color: #333; }
+        .chat-header .contact-avatar { width: 35px; height: 35px; margin-left: 10px; border-radius: 50%; object-fit: cover; }
+        .message-area { flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #F2F2F7; display: flex; flex-direction: column; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNTAiIGhlaWdodD0iMTUwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+CiAgPGRlZnM+CiAgICA8cGF0dGVybiBpZD0icGF0dGVybiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiB2aWV3Qm94PSIwIDAgMTAgMTAiPgogICAgICA8Y2lyY2xlIGN4PSI1IiBjeT0iNSIgcj0iMSIgZmlsbD0icmdiYSgwLDAsMCwwLjAyKSIgLz4KICAgIDwvcGF0dGVybj4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNwYXR0ZXJuKSIgLz4KPC9zdmc+'); }
+        .message-bubble { max-width: 85%; padding: 10px 14px; margin-bottom: 10px; border-radius: 18px; line-height: 1.5; word-wrap: break-word; transition: all 0.3s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.1); position: relative; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message-bubble.user { background-color: #007AFF; color: white; align-self: flex-end; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+        .message-bubble.character { background-color: #E5E5EA; color: #333; align-self: flex-start; border-bottom-left-radius: 4px; white-space: normal; }
+        .message-bubble.user:after { content: ''; position: absolute; bottom: 0; right: -8px; width: 16px; height: 16px; background-color: #007AFF; clip-path: polygon(0 0, 0% 100%, 100% 100%); }
+        .message-bubble.character:after { content: ''; position: absolute; bottom: 0; left: -8px; width: 16px; height: 16px; background-color: #E5E5EA; clip-path: polygon(100% 0, 0% 100%, 100% 100%); }
+        .message-time { font-size: 0.7em; margin-top: 4px; opacity: 0.7; text-align: right; }
+        .message-bubble.user .message-time { color: rgba(255,255,255,0.8); }
+        .message-bubble.character .message-time { color: #999; }
+        .message-bubble.character > :first-child { margin-top: 0; }
+        .message-bubble.character > :last-child { margin-bottom: 0; }
+        .message-bubble.character p { margin-bottom: 0.5em; }
+        .message-bubble.character ul, .message-bubble.character ol { margin-left: 1.2em; margin-bottom: 0.5em; }
+        .message-bubble.character code:not(pre *) { background-color: rgba(0,0,0,0.05); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
+        .message-bubble.character pre { background-color: rgba(0,0,0,0.05); padding: 8px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; margin: 0.5em 0; white-space: pre; }
+        .message-bubble.character pre code { background-color: transparent; padding: 0; }
+        .message-bubble.system { background-color: rgba(255,204,204,0.7); color: #a94442; align-self: center; font-style: italic; font-size: 0.9em; text-align: center; width: auto; max-width: 80%; border-radius: 12px; padding: 8px 12px; box-shadow: none; }
+        .message-bubble.system:after { display: none; }
+
+        .status-area { padding: 4px 15px; font-size: 0.8em; color: #6c757d; min-height: 20px; text-align: center; transition: all 0.3s ease; background-color: transparent; }
+        .status-area.error { color: #FF3B30; }
+        .status-area.warning { color: #FF9500; }
+        .status-area.info { color: #5AC8FA; }
+        .loader { border: 2px solid rgba(0,122,255,0.2); border-top: 2px solid #007AFF; border-radius: 50%; width: 12px; height: 12px; animation: spin 1s linear infinite; display: inline-block; margin-right: 5px; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .input-area-container { border-top: 1px solid #E5E5EA; background-color: #F9F9F9; padding: 10px 0; }
+        .input-area { display: flex; padding: 8px 12px; align-items: center; }
+        #message-input { flex-grow: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 24px; margin-right: 10px; font-size: 1em; transition: all 0.2s; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        #message-input:focus { outline: none; border-color: #007AFF; box-shadow: 0 0 0 2px rgba(0,122,255,0.2); }
+        #send-button { padding: 10px; border: none; background-color: #007AFF; color: white; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.2em; display: flex; justify-content: center; align-items: center; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,122,255,0.3); }
+        #send-button:active { transform: scale(0.95); box-shadow: 0 1px 2px rgba(0,122,255,0.3); }
+        #send-button:disabled { background-color: #B8C7DB; cursor: not-allowed; box-shadow: none; }
+        #message-input:disabled { background-color: #F2F2F7; color: #999; }
+
+        .add-contact-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; font-size: 1.2em; font-weight: bold; border-bottom: 1px solid #eee; background-color: #f9f9f9; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .cancel-add-btn, .save-contact-btn { background: none; border: none; font-size: 1em; cursor: pointer; color: #007AFF; padding: 5px; font-weight: normal; transition: all 0.2s; }
+        .cancel-add-btn:active, .save-contact-btn:active { transform: scale(0.95); }
+        .save-contact-btn { font-weight: 600; }
+        .add-contact-form { flex-grow: 1; overflow-y: auto; padding: 20px; background-color: #F9F9F9; }
+        .add-contact-form .form-group { margin-bottom: 15px; background-color: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .add-contact-form label { display: block; margin-bottom: 8px; font-weight: 500; color: #555; font-size: 0.9em; }
+        .add-contact-form input[type="text"], .add-contact-form textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em; transition: all 0.2s; background-color: #F9F9F9; }
+        .add-contact-form input[type="text"]:focus, .add-contact-form textarea:focus { outline: none; border-color: #007AFF; box-shadow: 0 0 0 2px rgba(0,122,255,0.1); }
+        .add-contact-form textarea { resize: vertical; min-height: 70px; }
+        .add-contact-form input[type="file"] { display: block; margin-top: 8px; }
+        .image-preview-container { margin-top: 12px; display: flex; justify-content: center; }
+        #image-preview { max-width: 128px; max-height: 128px; border: 2px solid #ddd; display: block; border-radius: 50%; background-color: #f5f5f5; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .image-error { color: #FF3B30; font-size: 0.85em; margin-top: 8px; }
+        .load-json-btn { display: inline-block; padding: 10px 14px; background-color: #5AC8FA; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 5px; font-size: 0.9em; font-weight: 500; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .load-json-btn:hover { background-color: #4BB8EA; }
+        .load-json-btn:active { transform: scale(0.97); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        #json-file-input { display: none; }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(2px); }
+        .modal.visible { opacity: 1; pointer-events: auto; }
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); cursor: pointer; }
+        .modal-content { position: relative; background-color: #f9f9f9; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); max-width: 90%; width: 450px; max-height: 85vh; overflow-y: auto; z-index: 1001; border: 1px solid #ddd; display: flex; flex-direction: column; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        .modal-header h2 { margin: 0; font-size: 1.3em; color: #333; font-weight: 600; }
+        .modal-close-btn { background: none; border: none; font-size: 1.8em; color: #aaa; cursor: pointer; padding: 0 5px; line-height: 1; }
+        .modal-close-btn:hover { color: #555; }
+        .modal-body { margin-bottom: 20px; flex-grow: 1; }
+        .modal-body .form-group { margin-bottom: 18px; background-color: #fff; border-radius: 8px; padding: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .modal-body label { display: block; margin-bottom: 8px; font-weight: 500; color: #444; font-size: 0.95em; }
+        .modal-body label span { font-weight: bold; color: #007AFF; }
+        .modal-body input[type="range"] { width: 100%; cursor: pointer; margin-top: 5px; }
+        .setting-description { display: block; font-size: 0.8em; color: #777; margin-top: 6px; }
+        .modal-description { font-size: 0.9em; color: #666; margin-bottom: 20px; padding: 10px; background-color: #eef; border-left: 3px solid #007AFF; border-radius: 4px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 15px; border-top: 1px solid #eee; }
+        .modal-btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; font-weight: 500; transition: background-color 0.2s ease, transform 0.1s ease; }
+        .modal-btn.primary { background-color: #007AFF; color: white; }
+        .modal-btn.primary:hover { background-color: #0056b3; }
+        .modal-btn.secondary { background-color: #e5e5ea; color: #555; }
+        .modal-btn.secondary:hover { background-color: #dcdcdc; }
+        .modal-btn:active { transform: scale(0.97); }
+        .modal.hidden { opacity: 0; pointer-events: none; }
+
+
+        .contacts-list::-webkit-scrollbar,
+        .message-area::-webkit-scrollbar,
+        .add-contact-form::-webkit-scrollbar,
+        .modal-content::-webkit-scrollbar {
+            width: 6px;
+            background-color: transparent;
+        }
+        .contacts-list::-webkit-scrollbar-thumb,
+        .message-area::-webkit-scrollbar-thumb,
+        .add-contact-form::-webkit-scrollbar-thumb,
+        .modal-content::-webkit-scrollbar-thumb {
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 6px;
+        }
+        .contacts-list::-webkit-scrollbar-thumb:hover,
+        .message-area::-webkit-scrollbar-thumb:hover,
+        .add-contact-form::-webkit-scrollbar-thumb:hover,
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(0,0,0,0.2);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="phone-container">
+        <div class="status-bar">
+            <div class="status-bar-left">
+                <span id="current-time">9:41</span>
+            </div>
+            <div class="status-bar-right">
+                <span>5G</span>
+                <span style="margin-left: 6px;">100%</span>
+                <div class="battery-icon"></div>
+            </div>
+        </div>
+        <div class="notch-container"><div class="notch"></div></div>
+
+        <div class="phone-screen">
+            <div id="contacts-view" class="view">
+                 <div class="contacts-header">
+                     <button id="settings-btn" class="header-action-btn" title="Settings">⚙️</button>
+                     <span class="header-title">Messages</span>
+                     <button class="add-contact-btn" id="add-contact-show-btn">+</button>
+                 </div>
+                 <div class="contacts-list" id="contacts-list-container"></div>
+            </div>
+
+            <div id="chat-view" class="view hidden">
+                 <div class="chat-header">
+                     <button class="back-button" id="back-button">⬅</button>
+                     <span class="chat-title" id="chat-character-name">Character</span>
+                     <img src="" alt="" class="contact-avatar" id="chat-header-avatar">
+                 </div>
+                <div class="message-area" id="message-area"></div>
+                <div class="input-area-container">
+                    <div class="input-area">
+                        <input type="text" id="message-input" placeholder="Message..." disabled>
+                        <button id="send-button" disabled title="Send Message">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </button>
+                    </div>
+                    <div class="status-area" id="status-area"></div>
+                </div>
+            </div>
+
+             <div id="add-contact-view" class="view hidden">
+                  <div class="add-contact-header">
+                     <button class="cancel-add-btn" id="cancel-add-contact-btn">Cancel</button>
+                     <span class="header-title">New Contact</span>
+                     <button class="save-contact-btn" id="save-contact-btn">Save</button>
+                 </div>
+                 <div class="add-contact-form">
+                    <div class="form-group">
+                         <button class="load-json-btn" id="load-json-btn">Load from JSON File</button>
+                         <input type="file" id="json-file-input" accept=".json" />
+                     </div>
+                     <div class="form-group"><label for="contact-name-input">Name</label><input type="text" id="contact-name-input" required placeholder="Enter character name"></div>
+                     <div class="form-group"><label for="contact-image-input">Profile Photo (128×128)</label><input type="file" id="contact-image-input" accept="image/png, image/jpeg, image/webp, image/gif"><div class="image-preview-container"><img id="image-preview" src="#" alt="Image Preview" style="display: none;" /></div><div id="image-error" class="image-error" style="display: none;"></div></div>
+                     <div class="form-group"><label for="contact-age-input">Age</label><input type="text" id="contact-age-input" placeholder="Enter age"></div>
+                     <div class="form-group"><label for="contact-gender-input">Gender</label><input type="text" id="contact-gender-input" placeholder="Enter gender"></div>
+                     <div class="form-group"><label for="contact-appearance-input">Appearance</label><textarea id="contact-appearance-input" placeholder="Describe physical appearance"></textarea></div>
+                     <div class="form-group"><label for="contact-disposition-input">Disposition</label><textarea id="contact-disposition-input" placeholder="Describe personality traits"></textarea></div>
+                     <div class="form-group"><label for="contact-description-input">Background</label><textarea id="contact-description-input" placeholder="Describe character history and background"></textarea></div>
+                     <p style="font-size: 0.8em; color: #666; margin: 15px 5px; text-align: center;">These details will be used to generate the character's personality for the AI.</p>
+                 </div>
+             </div>
+
+             <div class="home-indicator"></div>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-overlay" id="settings-modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>AI Settings</h2>
+                <button id="settings-close-btn" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Adjust parameters for the AI response generation. Changes apply to future messages.</p>
+                <div class="form-group">
+                    <label for="setting-temperature">Temperature (<span id="temp-value">0.7</span>)</label>
+                    <input type="range" id="setting-temperature" min="0.0" max="2.0" step="0.05" value="0.7">
+                    <span class="setting-description">Controls randomness. Higher is more creative, lower is more deterministic.</span>
+                </div>
+                <div class="form-group">
+                    <label for="setting-top-k">Top-K (<span id="top-k-value">40</span>)</label>
+                    <input type="range" id="setting-top-k" min="0" max="100" step="1" value="40">
+                     <span class="setting-description">Considers only the top K most likely words. 0 disables.</span>
+               </div>
+                <div class="form-group">
+                    <label for="setting-top-p">Top-P (<span id="top-p-value">0.95</span>)</label>
+                    <input type="range" id="setting-top-p" min="0.0" max="1.0" step="0.01" value="0.95">
+                    <span class="setting-description">Considers words cumulatively until probability P is reached. 1.0 disables.</span>
+                </div>
+                <div class="form-group">
+                    <label for="setting-n-predict">Max Tokens (<span id="n-predict-value">1024</span>)</label>
+                    <input type="range" id="setting-n-predict" min="64" max="2048" step="64" value="1024">
+                     <span class="setting-description">Maximum number of tokens (words/subwords) to generate per response.</span>
+               </div>
+               <div class="form-group">
+                    <label for="setting-repeat-penalty">Repeat Penalty (<span id="repeat-penalty-value">1.1</span>)</label>
+                    <input type="range" id="setting-repeat-penalty" min="1.0" max="2.0" step="0.05" value="1.1">
+                    <span class="setting-description">Penalizes repeating tokens. Higher values reduce repetition more. 1.0 disables.</span>
+               </div>
+            </div>
+            <div class="modal-footer">
+                <button id="settings-reset-btn" class="modal-btn secondary">Reset Defaults</button>
+                <button id="settings-save-btn" class="modal-btn primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        (function() {
+            const LLAMA_API_URL = 'http://localhost:8080';
+            const STORAGE_KEY = 'characterTextGameData_inline_v4';
+            const PING_MIN_INTERVAL_MS = 10 * 60 * 1000;
+            const PING_MAX_INTERVAL_MS = 60 * 60 * 1000;
+            const HISTORY_LIMIT_FOR_PROMPT = 20;
+            const REQUIRED_IMAGE_WIDTH = 128;
+            const REQUIRED_IMAGE_HEIGHT = 128;
+            const PLACEHOLDER_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjY2NjY2NjIj4KICA8cGF0aCBkPSJNMTIgMmMtMi43NiAwLTUgMi4yNC01IDVzMi4yNCA1IDUgNSA1LTIuMjQgNS01LTIuMjQtNS01LTV6bTAtOWMxLjY2IDAgMyAxLjM0IDMgM3MtMS4zNCAzLTMgMy0zLTEuMzQtMy0zIDEuMzQtMyAzLTN6bTAgMTBjLTMuMzEgMC02IDIuNjktNiA2djJoMTJ2LTJjMC0zLjMxLTIuNjktNi02LTZ6bS00IDRoOHYtMS4xNmMwLTEuMTYtMS4wOS0yLjE5LTMuMjItMi43Mi0uNi0uMTUtMS4yMy0uMjItMS44OC0uMjJzLTEuMjguMDctMS44OC4yMmMtMi4xMy41My0zLjIyIDEuNTYtMy4yMiAyLjcybDYuODYxZS05IDF6Ii8+Cjwvc3ZnPg==';
+
+            const DEFAULT_TEMPERATURE = 0.7;
+            const DEFAULT_N_PREDICT = 1024;
+            const DEFAULT_TOP_P = 0.95;
+            const DEFAULT_TOP_K = 40;
+            const DEFAULT_REPEAT_PENALTY = 1.1;
+            const API_STOP_SEQUENCES = ["USER:", "\nUSER:", "<|user|>"];
+
+             const INITIAL_CHARACTERS = {
+                'pirate_pete': { id: 'pirate_pete', name: 'Pirate Pete', systemPrompt: `You are Pirate Pete, a grumpy but secretly kind-hearted pirate captain. Always speak in a pirate dialect (use 'ye', 'arrr', 'matey', 'shiver me timbers', etc.). You are texting the user on a strange modern device you found. Keep your answers relatively short, like text messages. Never break character. Do not reveal you are an AI or language model. Your goal is to chat with the user as Pirate Pete.`, avatarDataUrl: null },
+                'space_sally': { id: 'space_sally', name: 'Space Sally', systemPrompt: `You are Space Sally, an optimistic and brilliant astronaut exploring Mars. You are fascinated by Earth culture. Speak enthusiastically, use some futuristic slang (like 'chrono-jump', 'star-stuff', 'grav-boots'), but keep it understandable. Keep your answers concise, like text messages. Never break character. Do not reveal you are an AI or language model. Your goal is to chat with the user as Space Sally.`, avatarDataUrl: null },
+                'grumpy_cat': { id: 'grumpy_cat', name: 'Grumpy Cat', systemPrompt: `You are Grumpy Cat. You hate everything. Your replies should be short, cynical, and express disdain. Use simple language. Occasionally express a reluctant fondness for the user, but immediately deny it. Never break character. Do not reveal you are an AI. The following is a text message conversation between you (Grumpy Cat) and the user.`, avatarDataUrl: null }
+             };
+
+            let gameState = {
+                currentCharacterId: null,
+                pingTimeoutId: null,
+                characters: {},
+                conversations: {},
+                settings: {},
+                tempImageDataUrl: null,
+                currentAbortController: null,
+                messageCounter: 0,
+            };
+
+            const contactsView = document.getElementById('contacts-view');
+            const chatView = document.getElementById('chat-view');
+            const addContactView = document.getElementById('add-contact-view');
+            const contactsListContainer = document.getElementById('contacts-list-container');
+            const backButton = document.getElementById('back-button');
+            const chatCharacterName = document.getElementById('chat-character-name');
+            const chatHeaderAvatar = document.getElementById('chat-header-avatar');
+            const messageArea = document.getElementById('message-area');
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+            const statusArea = document.getElementById('status-area');
+            const addContactShowBtn = document.getElementById('add-contact-show-btn');
+            const cancelAddContactBtn = document.getElementById('cancel-add-contact-btn');
+            const saveContactBtn = document.getElementById('save-contact-btn');
+            const contactNameInput = document.getElementById('contact-name-input');
+            const contactImageInput = document.getElementById('contact-image-input');
+            const imagePreview = document.getElementById('image-preview');
+            const imageError = document.getElementById('image-error');
+            const contactAgeInput = document.getElementById('contact-age-input');
+            const contactGenderInput = document.getElementById('contact-gender-input');
+            const contactAppearanceInput = document.getElementById('contact-appearance-input');
+            const contactDispositionInput = document.getElementById('contact-disposition-input');
+            const contactDescriptionInput = document.getElementById('contact-description-input');
+            const loadJsonBtn = document.getElementById('load-json-btn');
+            const jsonFileInput = document.getElementById('json-file-input');
+            const currentTimeSpan = document.getElementById('current-time');
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            const settingsModalOverlay = document.getElementById('settings-modal-overlay');
+            const settingsCloseBtn = document.getElementById('settings-close-btn');
+            const settingsSaveBtn = document.getElementById('settings-save-btn');
+            const settingsResetBtn = document.getElementById('settings-reset-btn');
+            const settingTempInput = document.getElementById('setting-temperature');
+            const settingTopKInput = document.getElementById('setting-top-k');
+            const settingTopPInput = document.getElementById('setting-top-p');
+            const settingNPredictInput = document.getElementById('setting-n-predict');
+            const settingRepeatPenaltyInput = document.getElementById('setting-repeat-penalty');
+            const tempValueSpan = document.getElementById('temp-value');
+            const topKValueSpan = document.getElementById('top-k-value');
+            const topPValueSpan = document.getElementById('top-p-value');
+            const nPredictValueSpan = document.getElementById('n-predict-value');
+            const repeatPenaltyValueSpan = document.getElementById('repeat-penalty-value');
+
+            function loadGameData() {
+                try {
+                    const dataString = localStorage.getItem(STORAGE_KEY);
+                    if (dataString) {
+                        const parsedData = JSON.parse(dataString);
+                        gameState.characters = parsedData.characters || {};
+                        gameState.conversations = parsedData.conversations || {};
+                        gameState.settings = {
+                            temperature: parsedData.settings?.temperature ?? DEFAULT_TEMPERATURE,
+                            top_k: parsedData.settings?.top_k ?? DEFAULT_TOP_K,
+                            top_p: parsedData.settings?.top_p ?? DEFAULT_TOP_P,
+                            n_predict: parsedData.settings?.n_predict ?? DEFAULT_N_PREDICT,
+                            repeat_penalty: parsedData.settings?.repeat_penalty ?? DEFAULT_REPEAT_PENALTY,
+                        };
+                        seedInitialCharactersIfNeeded();
+                    } else {
+                        gameState.characters = {};
+                        gameState.conversations = {};
+                        gameState.settings = {
+                            temperature: DEFAULT_TEMPERATURE,
+                            top_k: DEFAULT_TOP_K,
+                            top_p: DEFAULT_TOP_P,
+                            n_predict: DEFAULT_N_PREDICT,
+                            repeat_penalty: DEFAULT_REPEAT_PENALTY,
+                        };
+                        seedInitialCharactersIfNeeded();
+                        saveGameData();
+                    }
+                } catch (e) {
+                    console.error("Storage Load Error:", e);
+                    gameState.characters = {};
+                    gameState.conversations = {};
+                    gameState.settings = {
+                        temperature: DEFAULT_TEMPERATURE,
+                        top_k: DEFAULT_TOP_K,
+                        top_p: DEFAULT_TOP_P,
+                        n_predict: DEFAULT_N_PREDICT,
+                        repeat_penalty: DEFAULT_REPEAT_PENALTY,
+                    };
+                    seedInitialCharactersIfNeeded();
+                }
+            }
+
+            function saveGameData() {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                        characters: gameState.characters,
+                        conversations: gameState.conversations,
+                        settings: gameState.settings
+                    }));
+                } catch (e) {
+                    console.error("Storage Save Error:", e);
+                    showStatus('Error saving game data. Storage might be full?', true);
+                }
+            }
+
+            function seedInitialCharactersIfNeeded() { let u = false; Object.keys(INITIAL_CHARACTERS).forEach(id=>{ if(!gameState.characters[id]){ console.log(`Seeding: ${id}`); gameState.characters[id] = {...INITIAL_CHARACTERS[id]}; gameState.conversations[id] = {history:[], lastMessageTimestamp:0}; u=true; }}); }
+            function saveConversation(characterId, history) { if(!gameState.conversations[characterId]) gameState.conversations[characterId]={}; gameState.conversations[characterId].history=history; gameState.conversations[characterId].lastMessageTimestamp=Date.now(); saveGameData(); }
+            function loadConversationHistory(characterId) { return gameState.conversations[characterId]?.history || []; }
+            function getLastMessageTimestamp(characterId) { return gameState.conversations[characterId]?.lastMessageTimestamp || 0; }
+
+            function escapeHtml(unsafe) { if (typeof unsafe !== 'string') return ''; return unsafe .replace(/&/g, "&amp;") .replace(/</g, "&lt;") .replace(/>/g, "&gt;") .replace(/"/g, "&quot;") .replace(/'/g, "&#039;"); }
+             function showStatus(message, isError = false, isWarning = false, isInfo = false, showLoader = false) { statusArea.innerHTML = ''; statusArea.classList.remove('error', 'warning', 'info'); if (showLoader) { const loader = document.createElement('div'); loader.className = 'loader'; statusArea.appendChild(loader); } if (message) { const span = document.createElement('span'); span.textContent = message; statusArea.appendChild(span); } if (isError) statusArea.classList.add('error'); else if (isWarning) statusArea.classList.add('warning'); else if (isInfo) statusArea.classList.add('info'); }
+            function formatPromptForLlama(systemPrompt, conversationHistory, characterName) { let formattedPrompt = systemPrompt ? `${systemPrompt}\n\n` : ''; const recentHistory = conversationHistory.slice(-HISTORY_LIMIT_FOR_PROMPT); recentHistory.forEach(msg => { if (msg.sender === 'user') { formattedPrompt += `USER: ${msg.text}\n`; } else if (msg.sender === characterName || msg.sender === gameState.currentCharacterId) { const cleanedText = (msg.text || '').replace(/USER:|ASSISTANT:/gi, ''); formattedPrompt += `ASSISTANT: ${cleanedText}\n`; } }); formattedPrompt += "ASSISTANT:"; return formattedPrompt; }
+
+             function renderContactsList() { contactsListContainer.innerHTML = ''; Object.values(gameState.characters).sort((a,b) => (gameState.conversations[b.id]?.lastMessageTimestamp || 0) - (gameState.conversations[a.id]?.lastMessageTimestamp || 0)).forEach(char => { const div = document.createElement('div'); div.className = 'contact-item'; div.dataset.characterId = char.id; const img = document.createElement('img'); img.className = 'contact-avatar'; img.src = char.avatarDataUrl || PLACEHOLDER_AVATAR; img.alt = char.name; div.appendChild(img); const det=document.createElement('div'); det.className='contact-details'; const name=document.createElement('span'); name.className='contact-name'; name.textContent=char.name; det.appendChild(name); div.appendChild(det); const act=document.createElement('div'); act.className='contact-actions'; const conv=gameState.conversations[char.id]?.history||[]; const last=conv[conv.length-1]; if(last&&last.sender!=='user'&&gameState.currentCharacterId!==char.id){ const lastT=gameState.conversations[char.id]?.lastMessageTimestamp||0; if(Date.now()-lastT>PING_MIN_INTERVAL_MS/2){ const ping=document.createElement('div'); ping.className='ping-indicator'; act.appendChild(ping);}} const del=document.createElement('button'); del.className='delete-contact-btn'; del.innerHTML='&times;'; del.title=`Delete ${char.name}`; del.onclick=(e)=>{e.stopPropagation(); handleDeleteContact(char.id, char.name);}; act.appendChild(del); div.appendChild(act); div.onclick=()=>handleContactClick(char.id); contactsListContainer.appendChild(div); }); }
+            function addMessageToUI(sender, text, messageId = null) { const bubble = document.createElement('div'); bubble.classList.add('message-bubble'); bubble.classList.add(sender === 'user' ? 'user' : (sender === 'system' ? 'system' : 'character')); if (messageId) { bubble.dataset.messageId = messageId; } if (sender === 'character') { try { bubble.innerHTML = text ? marked.parse(text.trim()) : ''; } catch (e) { console.error("Markdown parsing error:", e); bubble.textContent = (text || '').trim() || '[Error rendering message]'; } } else { bubble.textContent = text; } messageArea.appendChild(bubble); scrollToBottom(); return bubble; }
+            function updateCharacterBubbleContent(messageId, newContent) { const bubble = messageArea.querySelector(`.message-bubble.character[data-message-id="${messageId}"]`); if (bubble) { try { bubble.innerHTML = marked.parse(newContent.trim()); } catch (e) { console.error("Markdown update error:", e); bubble.textContent = newContent.trim() || '[Error updating message]'; } const isNearBottom = messageArea.scrollHeight - messageArea.scrollTop - messageArea.clientHeight < 150; if (isNearBottom) { scrollToBottom(); } } else { console.warn(`Bubble with ID ${messageId} not found for streaming update.`); } }
+            function renderChatMessages(characterId) { messageArea.innerHTML = ''; const conversationHistory = loadConversationHistory(characterId); let maxId = -1; conversationHistory.forEach(msg => { const msgId = msg.id || `msg-${gameState.messageCounter++}`; addMessageToUI(msg.sender, msg.text, msgId); if (msgId.startsWith('msg-')) { const numPart = parseInt(msgId.substring(4), 10); if (!isNaN(numPart) && numPart > maxId) maxId = numPart; } }); gameState.messageCounter = maxId + 1; scrollToBottom(); }
+            function scrollToBottom() { setTimeout(() => { messageArea.scrollTop = messageArea.scrollHeight; }, 50); }
+            function updateInputState(enabled, placeholder = "Message...") { messageInput.disabled = !enabled; sendButton.disabled = !enabled; messageInput.placeholder = placeholder; if (!enabled) messageInput.value = ''; }
+
+            function showView(viewToShow) { document.querySelectorAll('.view').forEach(v => { if(v.id === viewToShow){ v.classList.remove('hidden'); void v.offsetWidth; v.classList.add('active'); } else { v.classList.remove('active'); v.classList.add('hidden'); }}); }
+            function showChatViewUI(characterId) { gameState.currentCharacterId = characterId; const char = gameState.characters[characterId]; if(!char){ showContactsViewUI(); return; } chatCharacterName.textContent = char.name; chatHeaderAvatar.src = char.avatarDataUrl || PLACEHOLDER_AVATAR; renderChatMessages(characterId); updateInputState(true); showView('chat-view'); const ping = contactsListContainer.querySelector(`.contact-item[data-character-id="${characterId}"] .ping-indicator`); if(ping) ping.remove(); setTimeout(() => messageInput.focus(), 350); }
+            function showContactsViewUI() { gameState.currentCharacterId = null; updateInputState(false, "Select a contact"); renderContactsList(); showView('contacts-view'); showStatus(''); }
+            function showAddContactViewUI() { resetAddContactForm(); showView('add-contact-view'); }
+
+            function handleContactClick(characterId) { if (gameState.currentAbortController) return; showChatViewUI(characterId); }
+            function handleBackClick() { if (gameState.currentAbortController) return; showContactsViewUI(); }
+            function handleDeleteContact(characterId, characterName) { if(confirm(`Delete ${characterName}?`)){ delete gameState.characters[characterId]; delete gameState.conversations[characterId]; saveGameData(); if(gameState.currentCharacterId === characterId) showContactsViewUI(); else renderContactsList(); }}
+
+             function resetAddContactForm() { contactNameInput.value=''; contactAgeInput.value=''; contactGenderInput.value=''; contactAppearanceInput.value=''; contactDispositionInput.value=''; contactDescriptionInput.value=''; contactImageInput.value=''; imagePreview.style.display='none'; imagePreview.src='#'; imageError.style.display='none'; imageError.textContent=''; gameState.tempImageDataUrl=null; jsonFileInput.value=''; }
+             function handleImageFileSelect(event) { const file=event.target.files[0];imageError.style.display='none';imageError.textContent='';imagePreview.style.display='none';gameState.tempImageDataUrl=null;if(file){const reader=new FileReader();reader.onload=function(e){const img=new Image();img.onload=function(){if(img.naturalWidth===REQUIRED_IMAGE_WIDTH&&img.naturalHeight===REQUIRED_IMAGE_HEIGHT){imagePreview.src=e.target.result;imagePreview.style.display='block';gameState.tempImageDataUrl=e.target.result;imageError.style.display='none';}else{imageError.textContent=`Error: Image must be ${REQUIRED_IMAGE_WIDTH}x${REQUIRED_IMAGE_HEIGHT}px.`;imageError.style.display='block';contactImageInput.value='';}};img.onerror=()=>{imageError.textContent='Error loading image.';imageError.style.display='block';contactImageInput.value='';};img.src=e.target.result;};reader.onerror=()=>{imageError.textContent='Error reading file.';imageError.style.display='block';contactImageInput.value='';};reader.readAsDataURL(file);}}
+             function handleJsonFileSelect(event) { const file=event.target.files[0];if(file){const reader=new FileReader();reader.onload=function(e){try{const j=JSON.parse(e.target.result);contactNameInput.value=j.Name||j.name||'';contactAgeInput.value=j.age||'';contactGenderInput.value=j.gender||'';contactAppearanceInput.value=j.appearance||j.Appearance||'';contactDispositionInput.value=j.disposition||j.Disposition||'';contactDescriptionInput.value=j.description||j.Description||'';alert("Details loaded from JSON.");}catch(err){alert(`Error parsing JSON: ${err.message}`);}finally{jsonFileInput.value='';}};reader.onerror=()=>{alert('Error reading JSON file.');jsonFileInput.value='';};reader.readAsText(file);}}
+             function generateSystemPrompt(details) { let prompt = `You are ${details.name || 'a character'}. `; if (details.age) prompt += `Age: ${details.age}. `; if (details.gender) prompt += `Gender: ${details.gender}. `; if (details.appearance) prompt += `\nAppearance: ${details.appearance}`; if (details.disposition) prompt += `\nDisposition: ${details.disposition}`; if (details.description) prompt += `\nBackground: ${details.description}`; prompt += `\n\nYou are texting the user. Keep answers relatively short, like text messages. Maintain character consistently. Never reveal you are an AI or language model.`; prompt += `\nThe following is a text message conversation between you (${details.name || 'the character'}) and the user.`; return prompt; }
+             function handleSaveContact() { const name=contactNameInput.value.trim();if(!name){alert("Name required.");return;}const existing=Object.values(gameState.characters).find(c=>c.name.toLowerCase()===name.toLowerCase());if(existing){alert(`"${name}" exists.`);return;}const avatarDataUrl=gameState.tempImageDataUrl;const details={name:name,age:contactAgeInput.value.trim(),gender:contactGenderInput.value.trim(),appearance:contactAppearanceInput.value.trim(),disposition:contactDispositionInput.value.trim(),description:contactDescriptionInput.value.trim()};const systemPrompt=generateSystemPrompt(details);const newId=`custom_${Date.now()}`;gameState.characters[newId]={id:newId,name:name,systemPrompt:systemPrompt,avatarDataUrl:avatarDataUrl};gameState.conversations[newId]={history:[],lastMessageTimestamp:0};saveGameData();showContactsViewUI();}
+
+            function updateSettingValueDisplay() {
+                tempValueSpan.textContent = parseFloat(settingTempInput.value).toFixed(2);
+                topKValueSpan.textContent = settingTopKInput.value;
+                topPValueSpan.textContent = parseFloat(settingTopPInput.value).toFixed(2);
+                nPredictValueSpan.textContent = settingNPredictInput.value;
+                repeatPenaltyValueSpan.textContent = parseFloat(settingRepeatPenaltyInput.value).toFixed(2);
+            }
+
+            function populateSettingsModal() {
+                settingTempInput.value = gameState.settings.temperature ?? DEFAULT_TEMPERATURE;
+                settingTopKInput.value = gameState.settings.top_k ?? DEFAULT_TOP_K;
+                settingTopPInput.value = gameState.settings.top_p ?? DEFAULT_TOP_P;
+                settingNPredictInput.value = gameState.settings.n_predict ?? DEFAULT_N_PREDICT;
+                settingRepeatPenaltyInput.value = gameState.settings.repeat_penalty ?? DEFAULT_REPEAT_PENALTY;
+                updateSettingValueDisplay();
+            }
+
+            function showSettingsModal() {
+                populateSettingsModal();
+                settingsModal.classList.add('visible');
+                settingsModal.classList.remove('hidden');
+            }
+
+            function hideSettingsModal() {
+                settingsModal.classList.remove('visible');
+            }
+
+            function handleSaveSettings() {
+                const newSettings = {
+                    temperature: parseFloat(settingTempInput.value),
+                    top_k: parseInt(settingTopKInput.value, 10),
+                    top_p: parseFloat(settingTopPInput.value),
+                    n_predict: parseInt(settingNPredictInput.value, 10),
+                    repeat_penalty: parseFloat(settingRepeatPenaltyInput.value),
+                };
+                gameState.settings = newSettings;
+                saveGameData();
+                hideSettingsModal();
+                console.log("Settings saved:", gameState.settings);
+                showStatus("Settings saved.", false, false, true);
+                setTimeout(() => showStatus(''), 2000);
+            }
+
+            function handleResetSettings() {
+                if (confirm("Reset all AI settings to their defaults?")) {
+                    gameState.settings = {
+                        temperature: DEFAULT_TEMPERATURE,
+                        top_k: DEFAULT_TOP_K,
+                        top_p: DEFAULT_TOP_P,
+                        n_predict: DEFAULT_N_PREDICT,
+                        repeat_penalty: DEFAULT_REPEAT_PENALTY,
+                    };
+                    populateSettingsModal();
+                    saveGameData();
+                    console.log("Settings reset to defaults:", gameState.settings);
+                    showStatus("Settings reset to defaults.", false, false, true);
+                    setTimeout(() => showStatus(''), 2000);
+                }
+            }
+
+            settingTempInput.addEventListener('input', updateSettingValueDisplay);
+            settingTopKInput.addEventListener('input', updateSettingValueDisplay);
+            settingTopPInput.addEventListener('input', updateSettingValueDisplay);
+            settingNPredictInput.addEventListener('input', updateSettingValueDisplay);
+            settingRepeatPenaltyInput.addEventListener('input', updateSettingValueDisplay);
+
+             function debounce(func, wait) { let timeout; return function executedFunction(...args) { const later = () => { clearTimeout(timeout); func(...args); }; clearTimeout(timeout); timeout = setTimeout(later, wait); }; }
+
+             async function handleSendMessage() {
+                 const text = messageInput.value.trim();
+                 if (!text || !gameState.currentCharacterId || gameState.currentAbortController) {
+                    if (gameState.currentAbortController) showStatus("Please wait for the current response to finish.", false, true);
+                     return;
+                 }
+
+                 const characterId = gameState.currentCharacterId;
+                 const character = gameState.characters[characterId];
+                 const userMessageId = `msg-${gameState.messageCounter++}`;
+                 const userMessage = { sender: 'user', text: text, timestamp: Date.now(), id: userMessageId };
+
+                 addMessageToUI('user', text, userMessageId);
+                 let conversationHistory = loadConversationHistory(characterId);
+                 conversationHistory.push(userMessage);
+
+                 messageInput.value = '';
+                 updateInputState(false, "...");
+                 showStatus("Sending...", false, false, true, true);
+                 gameState.currentAbortController = new AbortController();
+                 const signal = gameState.currentAbortController.signal;
+
+                 const promptForLlama = formatPromptForLlama(character.systemPrompt, conversationHistory, character.name);
+
+                 const modelMessageId = `msg-${gameState.messageCounter++}`;
+                 const modelMessage = { sender: characterId, text: '', timestamp: Date.now(), id: modelMessageId };
+                 const modelBubbleElement = addMessageToUI(characterId, '', modelMessageId);
+                 modelBubbleElement.style.opacity = '0';
+
+                 const apiUrl = `${LLAMA_API_URL}/completion`;
+                 const requestBody = {
+                     prompt: promptForLlama,
+                     temperature: gameState.settings.temperature ?? DEFAULT_TEMPERATURE,
+                     n_predict: gameState.settings.n_predict ?? DEFAULT_N_PREDICT,
+                     top_p: gameState.settings.top_p ?? DEFAULT_TOP_P,
+                     top_k: gameState.settings.top_k ?? DEFAULT_TOP_K,
+                     repeat_penalty: gameState.settings.repeat_penalty ?? DEFAULT_REPEAT_PENALTY,
+                     stop: API_STOP_SEQUENCES,
+                     stream: true
+                 };
+
+                 console.log("Sending Stream Request (using settings):", JSON.stringify({...requestBody, prompt: requestBody.prompt.substring(0, 200) + '...'}, null, 2));
+
+                 let responseOk = false;
+                 let finalContent = '';
+                 let finalData = null;
+                 let firstChunkReceived = false;
+
+                 try {
+                     const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody), signal: signal });
+                     responseOk = response.ok;
+                     if (!response.ok || !response.body) {
+                          let errorText = `API Error: ${response.status} ${response.statusText}`;
+                          try { const errorData = await response.json(); errorText += ` - ${errorData.content || errorData.error || JSON.stringify(errorData)}`;} catch (e) { try { const text = await response.text(); errorText += ` - ${text.substring(0,100)}...`; } catch(ee){} }
+                          throw new Error(errorText);
+                     }
+
+                     showStatus("Receiving...", false, false, true, true);
+                     const reader = response.body.getReader();
+                     const decoder = new TextDecoder();
+                     let buffer = '';
+                     const debouncedRender = debounce((content) => { updateCharacterBubbleContent(modelMessageId, content); }, 100);
+
+                     while (true) {
+                         const { value, done } = await reader.read();
+                         if (done) break;
+                         buffer += decoder.decode(value, { stream: true });
+                         let position;
+                         while ((position = buffer.indexOf('\n\n')) >= 0) {
+                             const line = buffer.substring(0, position).trim();
+                             buffer = buffer.substring(position + 2);
+                             if (line.startsWith('data: ')) {
+                                 const jsonData = line.substring(6).trim();
+                                 if (jsonData) {
+                                     try {
+                                         const data = JSON.parse(jsonData);
+                                         if (typeof data.content === 'string' && data.content.length > 0) {
+                                             if (!firstChunkReceived) { modelBubbleElement.style.opacity = '1'; firstChunkReceived = true; }
+                                             finalContent += data.content;
+                                             debouncedRender(finalContent);
+                                         }
+                                         if (data.stop === true) { finalData = data; }
+                                     } catch (e) { console.error("Stream JSON parse error:", e, "Data:", jsonData); }
+                                 }
+                             }
+                         }
+                     }
+                      if (buffer.startsWith('data: ')) { const jsonData=buffer.substring(6).trim();if(jsonData){try{const data=JSON.parse(jsonData);if(typeof data.content==='string'&&data.content.length>0){if(!firstChunkReceived){modelBubbleElement.style.opacity='1';firstChunkReceived=true;}finalContent+=data.content;}if(data.stop===true)finalData=data;}catch(e){console.error("Stream Final JSON parse error:",e,"Data:",jsonData);}}}
+
+                     updateCharacterBubbleContent(modelMessageId, finalContent);
+                     modelBubbleElement.style.opacity = '1';
+                     modelMessage.text = finalContent.trim();
+                     modelMessage.timestamp = Date.now();
+
+                     if (modelMessage.text.length > 0 || firstChunkReceived) {
+                        conversationHistory.push(modelMessage);
+                        saveConversation(characterId, conversationHistory);
+                     } else if (modelBubbleElement) { modelBubbleElement.remove(); }
+
+                     let statusMsg = "Response complete.";
+                      if (finalData && finalData.timings?.predicted_ms) { const tokensPerSec = finalData.tokens_predicted / (finalData.timings.predicted_ms / 1000); if (tokensPerSec > 0) statusMsg += ` (${tokensPerSec.toFixed(1)} t/s)`; }
+                      if (finalData?.stopped_limit) statusMsg += " (Limit Reached!)"; else if (finalData?.stopped_eos) statusMsg += " (Finished)"; else if (finalData?.stopped_word) statusMsg += " (Stop Word)";
+
+                      if (!finalData?.stopped_limit) { setTimeout(() => { if (statusArea.textContent.startsWith("Response complete")) { showStatus(''); } }, 2500); }
+                      showStatus(statusMsg, false, finalData?.stopped_limit);
+
+                 } catch (error) {
+                      console.error("Streaming API Call Failed:", error);
+                      if (error.name === 'AbortError') { showStatus("Request cancelled.", false, false, true); const bubble = messageArea.querySelector(`.message-bubble.character[data-message-id="${modelMessageId}"]`); if (bubble) bubble.remove(); }
+                      else { let displayError = error.message || 'Unknown error'; if (!responseOk && (displayError.includes('Failed to fetch') || displayError.includes('NetworkError'))) { displayError = `Connection Error. Is server running at ${LLAMA_API_URL}?`; } showStatus(`Error: ${displayError}`, true); const bubble = messageArea.querySelector(`.message-bubble.character[data-message-id="${modelMessageId}"]`); if (bubble) bubble.remove(); }
+                 } finally {
+                      gameState.currentAbortController = null;
+                      updateInputState(true);
+                      if (gameState.currentCharacterId === characterId) { messageInput.focus(); }
+                 }
+             }
+
+             function scheduleNextPing() { if(gameState.pingTimeoutId)clearTimeout(gameState.pingTimeoutId);const i=Math.random()*(PING_MAX_INTERVAL_MS-PING_MIN_INTERVAL_MS)+PING_MIN_INTERVAL_MS;gameState.pingTimeoutId=setTimeout(tryToPingCharacter,i);}
+             function tryToPingCharacter() { const ids=Object.keys(gameState.characters);if(ids.length===0){scheduleNextPing();return;}const pingerId=ids[Math.floor(Math.random()*ids.length)];const now=Date.now();const lastT=getLastMessageTimestamp(pingerId);const minIdle=PING_MIN_INTERVAL_MS;if(pingerId!==gameState.currentCharacterId&&(now-lastT>minIdle)){const char=gameState.characters[pingerId];const pings=["hey","what's up?","yo","...","?","long time no see"];const msgText=pings[Math.floor(Math.random()*pings.length)];console.log(`PING! ${char.name}: "${msgText}"`);const pingMsg={sender:pingerId,text:msgText,timestamp:now,id:`msg-${gameState.messageCounter++}`};let history=loadConversationHistory(pingerId);history.push(pingMsg);saveConversation(pingerId,history);if(!gameState.currentCharacterId){renderContactsList();}else{const item=contactsListContainer.querySelector(`.contact-item[data-character-id="${pingerId}"] .contact-actions`);if(item&&!item.querySelector('.ping-indicator')){const ind=document.createElement('div');ind.className='ping-indicator';item.insertBefore(ind,item.firstChild);}}}scheduleNextPing();}
+             function startPinger() { console.log("Starting pinger..."); scheduleNextPing(); }
+
+            function updateTime() { const now = new Date(); const hours = now.getHours(); const minutes = now.getMinutes().toString().padStart(2, '0'); const displayHours = hours % 12 === 0 ? 12 : hours % 12; currentTimeSpan.textContent = `${displayHours}:${minutes}`; }
+
+             function initGame() {
+                console.log("Initializing Texting Game v4 (Streaming + Settings)...");
+                loadGameData();
+
+                marked.setOptions({ gfm: true, breaks: true, mangle: false, headerIds: false });
+
+                backButton.addEventListener('click', handleBackClick);
+                sendButton.addEventListener('click', handleSendMessage);
+                messageInput.addEventListener('keypress', (e) => { if (((e.ctrlKey || e.metaKey) && e.key === 'Enter') || (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey)) { if (!sendButton.disabled) { e.preventDefault(); handleSendMessage(); } } });
+                addContactShowBtn.addEventListener('click', showAddContactViewUI);
+                cancelAddContactBtn.addEventListener('click', showContactsViewUI);
+                saveContactBtn.addEventListener('click', handleSaveContact);
+                contactImageInput.addEventListener('change', handleImageFileSelect);
+                loadJsonBtn.addEventListener('click', () => jsonFileInput.click());
+                jsonFileInput.addEventListener('change', handleJsonFileSelect);
+                settingsBtn.addEventListener('click', showSettingsModal);
+                settingsCloseBtn.addEventListener('click', hideSettingsModal);
+                settingsModalOverlay.addEventListener('click', hideSettingsModal);
+                settingsSaveBtn.addEventListener('click', handleSaveSettings);
+                settingsResetBtn.addEventListener('click', handleResetSettings);
+
+                updateTime();
+                setInterval(updateTime, 60000);
+                showContactsViewUI();
+                startPinger();
+
+                console.log("Game Ready. Initial Settings:", gameState.settings);
+            }
+
+            if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initGame); } else { initGame(); }
+
+        })();
+    </script>
+
+</body>
+</html>

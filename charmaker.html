@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Card Creator (Dark)</title>
+    <style>
+        /* Dark Theme Variables */
+        :root {
+            --bg-color: #1e1e1e;
+            --text-color: #e0e0e0;
+            --container-bg: #2a2a2a;
+            --input-bg: #333333;
+            --border-color: #444444;
+            --primary-color: #28a745; /* Green */
+            --hover-primary: #218838;
+            --label-color: #bbbbbb;
+            --preview-bg: #383838;
+            --preview-border: #555555;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 700px;
+            margin: 20px auto;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: var(--text-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--label-color); /* Lighter label color */
+        }
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box; /* Include padding in width */
+            font-size: 1rem;
+            background-color: var(--input-bg); /* Dark input background */
+            color: var(--text-color); /* Light text in inputs */
+        }
+        input::placeholder,
+        textarea::placeholder {
+            color: #888; /* Slightly lighter placeholder */
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            margin-top: 20px;
+            transition: background-color 0.2s ease;
+        }
+        button:hover {
+            background-color: var(--hover-primary);
+        }
+        #json-preview {
+            margin-top: 20px;
+            background-color: var(--preview-bg); /* Darker preview background */
+            border: 1px dashed var(--preview-border); /* Subtle border */
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap; /* Preserve formatting */
+            word-wrap: break-word; /* Wrap long lines */
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            color: var(--text-color); /* Ensure preview text is light */
+        }
+        .required-star {
+            color: #ff6b6b; /* Brighter red for dark theme */
+            margin-left: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Character Card Creator (Dark)</h1>
+
+    <div id="creator-form">
+        <div class="form-group">
+            <label for="char-name">Name<span class="required-star">*</span></label>
+            <input type="text" id="char-name" placeholder="Character's full name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="char-age">Age</label>
+            <input type="text" id="char-age" placeholder="e.g., 35, 'Ageless', 'Ancient'">
+        </div>
+
+        <div class="form-group">
+            <label for="char-gender">Gender</label>
+            <input type="text" id="char-gender" placeholder="e.g., Male, Female, Non-binary, Robot">
+        </div>
+
+        <div class="form-group">
+            <label for="char-appearance">Appearance</label>
+            <textarea id="char-appearance" placeholder="Describe their physical look, clothing, notable features..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="char-disposition">Disposition / Personality</label>
+            <textarea id="char-disposition" placeholder="Describe their temperament, common moods, how they act..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="char-description">Description / Background</label>
+            <textarea id="char-description" placeholder="A summary of who they are, their history, role, etc..."></textarea>
+        </div>
+
+        <button id="generate-btn">Generate & Download JSON</button>
+
+        <div class="form-group">
+            <label for="json-preview">JSON Preview:</label>
+            <pre id="json-preview">JSON will appear here...</pre>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const nameInput = document.getElementById('char-name');
+            const ageInput = document.getElementById('char-age');
+            const genderInput = document.getElementById('char-gender');
+            const appearanceInput = document.getElementById('char-appearance');
+            const dispositionInput = document.getElementById('char-disposition');
+            const descriptionInput = document.getElementById('char-description');
+            const generateBtn = document.getElementById('generate-btn');
+            const jsonPreview = document.getElementById('json-preview');
+
+            generateBtn.addEventListener('click', function() {
+                const characterData = {};
+
+                // --- Get values and build the object ---
+                const nameValue = nameInput.value.trim();
+                if (!nameValue) {
+                    alert('Character Name is required!');
+                    nameInput.focus();
+                    return; // Stop generation if name is missing
+                }
+                characterData.Name = nameValue; // Always include Name
+
+                const ageValue = ageInput.value.trim();
+                if (ageValue) characterData.age = ageValue;
+
+                const genderValue = genderInput.value.trim();
+                if (genderValue) characterData.gender = genderValue;
+
+                const appearanceValue = appearanceInput.value.trim();
+                if (appearanceValue) characterData.appearance = appearanceValue;
+
+                const dispositionValue = dispositionInput.value.trim();
+                if (dispositionValue) characterData.disposition = dispositionValue;
+
+                const descriptionValue = descriptionInput.value.trim();
+                if (descriptionValue) characterData.description = descriptionValue;
+
+                // --- Generate JSON and display preview ---
+                const jsonString = JSON.stringify(characterData, null, 2); // Pretty print
+                jsonPreview.textContent = jsonString;
+
+                // --- Prepare for download ---
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                let filename = nameValue.toLowerCase().replace(/\s+/g, '_').replace(/[^\w-]+/g, '');
+                if (!filename) filename = 'character';
+                a.download = `${filename}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        });
+    </script>
+
+</body>
+</html>
